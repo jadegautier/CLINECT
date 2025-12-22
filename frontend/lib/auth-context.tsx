@@ -8,7 +8,6 @@ import {
   ReactNode,
 } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase";
 
 interface AuthContextType {
   user: User | null;
@@ -40,12 +39,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
+    let unsubscribe: (() => void) | undefined;
 
-    return unsubscribe;
+(async () => {
+  const { auth } = await import("./firebase");
+  unsubscribe = onAuthStateChanged(auth, (user) => {
+    setUser(user);
+    setLoading(false);
+  });
+})();
+
+return () => unsubscribe?.();
+
   }, []);
 
   return (
