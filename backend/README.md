@@ -1,0 +1,340 @@
+# Clinect - Clinical Trial Patient Matching Platform
+
+A platform that connects patients with relevant clinical trials using the ClinicalTrials.gov API, intelligent caching, and dual-database architecture.
+
+## Project Overview
+
+Clinect helps patients find clinical trials that match their medical profiles by:
+- Searching ClinicalTrials.gov database (450,000+ trials)
+- Matching patients based on conditions, location, age, and gender
+- Caching trial data for fast, offline-capable searches
+- Tracking saved trials and medical histories
+
+## Tech Stack
+
+### Core Technologies
+- **Backend**: Flask (Python web framework)
+- **Data Source**: [ClinicalTrials.gov Data API](https://clinicaltrials.gov/data-api/api)
+- **Databases**:
+  - **PostgreSQL**: User accounts, medical histories, saved trials (relational data)
+  - **MongoDB**: Clinical trial documents, search cache (flexible documents)
+- **Package Management**: `uv` (fast Python package manager)
+
+### Future Roadmap
+- **PySpark**: Large-scale data processing and ETL pipelines
+- **Neo4j**: Graph relationships (conditions ↔ trials ↔ treatments)
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+1. **Python 3.13+**
+   ```bash
+   python --version  # Should be 3.13 or higher
+   ```
+
+2. **Docker Desktop** (for PostgreSQL and MongoDB)
+   ```bash
+   docker --version
+   ```
+
+3. **uv** (Python package manager)
+   ```bash
+   # Install via pip
+   pip install uv
+
+   # Or via Homebrew (macOS)
+   brew install uv
+   ```
+
+## Getting Started
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/kelvinxiao01/clinect.git
+cd clinect
+```
+
+### 2. Set Up Python Environment
+
+```bash
+# Create virtual environment and install dependencies
+uv sync
+```
+
+### 3. Configure Environment Variables
+
+The `.env` file should already exist with development settings:
+
+```env
+DATABASE_URL=postgresql://clinect_user:clinect_password@localhost:5432/clinect
+MONGODB_URL=mongodb://localhost:27017/
+SECRET_KEY=dev-secret-key-change-in-production
+```
+
+**Note**: For production, change the `SECRET_KEY` to a secure random value.
+
+### 4. Start Database Services
+
+```bash
+# Start PostgreSQL and MongoDB in Docker
+docker-compose up -d
+
+# Verify containers are running
+docker ps
+```
+
+You should see:
+- `clinect_postgres` on port 5432
+- `clinect_mongodb` on port 27017
+
+### 5. Initialize Databases
+
+```bash
+# Initialize PostgreSQL schema (creates tables)
+uv run init_db.py
+
+# Initialize MongoDB indexes (creates collections)
+uv run init_mongo.py
+```
+
+### 6. Run the Application
+
+```bash
+uv run app.py
+```
+
+The app will be available at: **http://localhost:5001**
+
+## Architecture
+
+### Database Design
+
+**PostgreSQL** (Relational Data)
+```
+users
+   id (PK)
+   username (UNIQUE)
+   created_at
+
+medical_histories
+   id (PK)
+   user_id (FK → users.id)
+   age, gender, location
+   conditions, medications
+   updated_at
+
+saved_trials
+   id (PK)
+   user_id (FK → users.id)
+   nct_id (ClinicalTrials.gov ID)
+   trial_title, trial_status, trial_summary
+   saved_at
+```
+
+**MongoDB** (Document Store)
+```
+trials_cache
+   nctId (INDEXED, UNIQUE)
+   protocolSection (full trial document)
+   searchableFields (conditions, locations, status)
+   cachedAt
+
+eligibility_criteria
+   nctId (INDEXED, UNIQUE)
+   criteria (complex eligibility rules)
+```
+
+### Request Flow
+
+1. **User searches for trials** → Check MongoDB cache
+2. **Cache miss** → Fetch from ClinicalTrials.gov API
+3. **API response** → Cache in MongoDB, return to user
+4. **User saves trial** → Store in PostgreSQL `saved_trials`
+
+## API Endpoints
+
+### Authentication
+- `POST /api/login` - Login (dummy auth, accepts any username)
+- `POST /api/logout` - Logout
+- `GET /api/current-user` - Get current session
+
+### Medical History
+- `POST /api/medical-history` - Save/update medical profile
+- `GET /api/medical-history` - Retrieve medical profile
+
+### Clinical Trials
+- `GET /api/trials/search` - Search trials
+  - Query params: `condition`, `location`, `status`, `age`, `gender`, `pageSize`, `use_cache`
+- `GET /api/trials/<nct_id>` - Get trial details
+
+### Saved Trials
+- `GET /api/saved-trials` - List user's saved trials
+- `POST /api/saved-trials` - Save a trial
+- `DELETE /api/saved-trials/<nct_id>` - Remove saved trial
+
+## Project Structure
+
+```
+clinect/
+   app.py                 # Flask application (main entry point)
+   database.py            # PostgreSQL connection & schema
+   mongo_db.py            # MongoDB connection & indexes
+   models.py              # Database CRUD operations
+   trial_cache.py         # Trial caching logic
+   init_db.py             # PostgreSQL initialization script
+   init_mongo.py          # MongoDB initialization script
+   docker-compose.yml     # Database container definitions
+   pyproject.toml         # Python dependencies (uv format)
+   .env                   # Environment variables
+   templates/             # HTML templates
+   index.html
+   static/                # CSS, JavaScript
+   style.css
+```
+
+## Development Workflow
+
+### Daily Development
+
+```bash
+# Start databases
+docker-compose up -d
+
+# Run app
+uv run app.py
+```
+
+### Adding Dependencies
+
+```bash
+# Add a package
+uv add package-name
+
+# Sync dependencies
+uv sync
+```
+
+### Database Operations
+
+```bash
+# Reset PostgreSQL schema
+uv run -c "from database import drop_schema, create_schema; drop_schema(); create_schema()"
+
+# Clear MongoDB cache
+uv run -c "from mongo_db import drop_collections, create_indexes; drop_collections(); create_indexes()"
+
+# View MongoDB stats
+uv run  -c "from mongo_db import get_stats; print(get_stats())"
+```
+
+### Stopping Services
+
+```bash
+# Stop and remove containers (data persists in volumes)
+docker-compose down
+
+# Stop and remove volumes (deletes all data)
+docker-compose down -v
+```
+
+## Troubleshooting
+
+### "Database connection failed"
+```bash
+# Check if containers are running
+docker ps
+
+# Restart containers
+docker-compose restart
+
+# View container logs
+docker logs clinect_postgres
+docker logs clinect_mongodb
+```
+
+### "Port already in use"
+```bash
+# Find process using port 5432 (PostgreSQL)
+lsof -i :5432
+
+# Find process using port 27017 (MongoDB)
+lsof -i :27017
+
+# Change ports in docker-compose.yml if needed
+```
+
+### "Module not found"
+```bash
+# Reinstall dependencies
+uv sync
+```
+
+### "Permission denied" (Docker on Linux)
+```bash
+# Add user to docker group
+sudo usermod -aG docker $USER
+
+# Log out and log back in
+```
+
+## Testing the Application
+
+### Manual API Testing (curl)
+
+```bash
+# Search trials for diabetes in Boston
+curl "http://localhost:5001/api/trials/search?condition=diabetes&location=Boston"
+
+# Get specific trial details
+curl "http://localhost:5001/api/trials/NCT04856124"
+
+# Login
+curl -X POST http://localhost:5001/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser"}'
+```
+
+### Check Database Contents
+
+```bash
+# PostgreSQL
+docker exec -it clinect_postgres psql -U clinect_user -d clinect -c "SELECT * FROM users;"
+
+# MongoDB
+docker exec -it clinect_mongodb mongosh clinect --eval "db.trials_cache.countDocuments()"
+```
+
+## Additional Resources
+
+- [ClinicalTrials.gov API Documentation](https://clinicaltrials.gov/data-api/api)
+- [Flask Documentation](https://flask.palletsprojects.com/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [MongoDB Documentation](https://www.mongodb.com/docs/)
+- [uv Package Manager](https://github.com/astral-sh/uv)
+
+## Contributing
+
+When working on this project:
+
+1. Create a feature branch: `git checkout -b feature/your-feature-name`
+2. Make your changes
+3. Test locally with both databases running
+4. Commit with clear messages
+5. Push and create a pull request
+
+## Notes
+
+- **Authentication**: Currently uses dummy authentication (any username works). Implement proper auth for production.
+- **API Rate Limits**: ClinicalTrials.gov API has rate limits; caching helps minimize requests.
+- **Data Privacy**: Medical histories are stored locally; ensure HIPAA compliance before production use.
+- **Database Volumes**: Docker volumes persist data even after `docker-compose down`. Use `down -v` to wipe data.
+
+## License
+
+See project documentation for license details.
+
+---
+
+**Questions?** Check [CLAUDE.md](CLAUDE.md) for architectural decisions and future roadmap.
