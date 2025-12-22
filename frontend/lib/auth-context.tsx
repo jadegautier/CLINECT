@@ -20,11 +20,26 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
 });
 
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // ✅ Demo mode: bypass Firebase auth completely
+    if (DEMO_MODE) {
+      setUser(
+        {
+          uid: "demo-user",
+          email: "demo@clinect.app",
+          displayName: "Demo User",
+        } as unknown as User
+      );
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
