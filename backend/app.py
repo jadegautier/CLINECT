@@ -29,6 +29,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 CORS(app, origins=['http://localhost:3000', 'https://clinect-fe.vercel.app'], supports_credentials=True)
 
 firebase_service_account_path = os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', 'firebase-service-account.json')
+
 if (not DEMO_MODE) and os.path.exists(firebase_service_account_path):
     cred = credentials.Certificate(firebase_service_account_path)
     firebase_admin.initialize_app(cred)
