@@ -21,7 +21,7 @@ from time import time
 load_dotenv()
 
 DEMO_MODE = os.getenv("DEMO_MODE", "").lower() in ("1", "true", "yes")
-
+print(f"🔥 DEMO_MODE={DEMO_MODE} | ENV DEMO_MODE={os.getenv('DEMO_MODE')} | FILE={__file__}")
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
