@@ -49,9 +49,8 @@ else:
 
 def ensure_demo_session():
     if DEMO_MODE and 'user_id' not in session:
-        user = models.get_or_create_user("demo")
         session['user'] = "demo@clinect.app"
-        session['user_id'] = user['id']
+        session['user_id'] = 0
         session['firebase_uid'] = "demo-user"
         session.permanent = True
 
