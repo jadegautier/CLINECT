@@ -292,6 +292,7 @@ def logout():
     return jsonify({'success': True})
 
 @app.route('/api/current-user', methods=['GET'])
+def _auto_demo_login():
 ensure_demo_session()
 def current_user():
     user = session.get('user')
